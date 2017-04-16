@@ -3,10 +3,10 @@ A C# stomp client, using for communication with spring websocket server.
 spring websocket config below:
 ```
 <websocket:message-broker application-destination-prefix="/app">
-        <websocket:stomp-endpoint path="/news-websocket" allowed-origins="*">
+        <websocket:stomp-endpoint path="/mywebsocket" allowed-origins="*">
             <websocket:sockjs/>
         </websocket:stomp-endpoint>
-        <websocket:simple-broker prefix="/test"/>       
+        <websocket:simple-broker prefix="/notification"/>       
 </websocket:message-broker>
 ```
   
