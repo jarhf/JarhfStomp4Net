@@ -1,7 +1,14 @@
 # JarhfStomp4Net
-A C# stomp client, using for communication with spring websocket server.  
+C#实现的stomp client和sockjs client，用来和spring websocket server通信.  
 
-服务器端用的是spring websocket, 配置的stomp消息通信协助，websocket配置sockjs实现（貌似别无他选）。配置如下 :
+> 工作中用到websocket通信，服务器端用的是spring websocket。客户端有多种，其中包含C#版的桌面程序。  
+但是网上C#版的客户端很少，找了一些比如 [StompClient](https://github.com/Code-Sharp/StompSharp),[StompNet](https://github.com/krlito/StompNet), [Aapche.NMS](http://activemq.apache.org/nms/)等都不符合要求无法使用。  
+最接近可用的是 [DistSpringWebSocketClient-CSharp](https://github.com/DistChen/DistSpringWebsocketClient-CSharp)，不过他没有基于sockjs规范websocket client，导致消息格式不对，和spring websocket通信总是1007错误。  
+好了，没办法，只好自己动手。  
+参考了：https://github.com/jmesnil/stomp-websocket和https://github.com/sockjs/sockjs-client
+
+
+服务器端spring websocket配置如下 :
 ```
 <websocket:message-broker application-destination-prefix="/app">
         <websocket:stomp-endpoint path="/mywebsocket" allowed-origins="*">
@@ -10,10 +17,10 @@ A C# stomp client, using for communication with spring websocket server.  
         <websocket:simple-broker prefix="/notification"/>       
 </websocket:message-broker>
 ```
-但是呢，我们客户端有多种，其中包含C#版的桌面程序。网上找了一些C#版的StompClient，要么用不了，要么就是没有符合sockjs协议要求的WebSocket实现。
-于是自己写了这个库，用于和server端进行websocket通信。
 
 # StompClient Usage
+使用方法和stomp.js保持高度一致
+
 ```
 string uri = "http://localhost:8083/mywebsocket"; // uri also can be "ws://localhost:8083/mywebsocket"
 StompClient client = new StompClient(uri);
