@@ -14,7 +14,22 @@ C#实现的stomp client和sockjs client，用来和spring websocket server通信
         <websocket:stomp-endpoint path="/mywebsocket" allowed-origins="*">
             <websocket:sockjs/>
         </websocket:stomp-endpoint>
-        <websocket:simple-broker prefix="/notification"/>       
+        <websocket:simple-broker prefix="/topic,/topic2"/>
+	<!-- spring默认的是Jackson序列化，这里改为自己用fastjson序列化实现的MessageConverter -->
+        <websocket:message-converters>
+            <bean class="com.xkw.qbm.common.converter.FastJsonMessageConverter">
+                <property name="fastJsonConfig">
+                    <bean id="fastJsonConfig"
+                          class="com.alibaba.fastjson.support.config.FastJsonConfig">
+                        <property name="serializerFeatures">
+                            <list>
+                                <value>DisableCircularReferenceDetect</value>
+                            </list>
+                        </property>
+                    </bean>
+                </property>
+            </bean>
+        </websocket:message-converters>        
 </websocket:message-broker>
 ```
 
