@@ -46,7 +46,7 @@ namespace JarhfStomp4Net.Stomp
         string VERSIONS_V1_0 = "1.0";
         string VERSIONS_V1_1 = "1.1";
         string VERSIONS_V1_2 = "1.2";
-        string SUPPORTED_VERSIONS = "1.2";//"1.1,1.0";
+        string SUPPORTED_VERSIONS = "1.1,1.0";
         Timer pinger;   
         Timer ponger;
         DateTime serverActivity = DateTime.Now;
@@ -55,11 +55,17 @@ namespace JarhfStomp4Net.Stomp
         public StompClient(string uri)
         {
             this.SockJs = new SocketJsClient(uri);
-            this.SockJs.MessageReceived += Ws_MessageReceived;
-            this.SockJs.OnClosed += Ws_Closed;
-            this.SockJs.OnOpened += Ws_Opened;
-            this.SockJs.OnError += Ws_Error;
-            
+            if (SockJs != null)
+            {
+                this.SockJs.MessageReceived += Ws_MessageReceived;
+                this.SockJs.OnClosed += Ws_Closed;
+                this.SockJs.OnOpened += Ws_Opened;
+                this.SockJs.OnError += Ws_Error;
+
+                this.Debug($"WebSokcet created, using the {SockJs.getSocketImplementationInfo()} implementation.");
+            }
+            else
+                throw new Exception("Couldn't initiate a WebSocket object");
         }
 
         private void Ws_Error(object sender, ErrorEventArgs e)
