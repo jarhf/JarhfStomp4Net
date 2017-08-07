@@ -1,18 +1,30 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JarhfStomp4Net", "JarhfStomp4Net\JarhfStomp4Net.csproj", "{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug (WebSocket4Net)|Any CPU = Debug (WebSocket4Net)|Any CPU
+		Debug (WebSocketSharp)|Any CPU = Debug (WebSocketSharp)|Any CPU
 		Debug|Any CPU = Debug|Any CPU
+		Release (WebSocket4Net)|Any CPU = Release (WebSocket4Net)|Any CPU
+		Release (WebSocketSharp)|Any CPU = Release (WebSocketSharp)|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}.Debug (WebSocket4Net)|Any CPU.ActiveCfg = Debug (WebSocket4Net)|Any CPU
+		{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}.Debug (WebSocket4Net)|Any CPU.Build.0 = Debug (WebSocket4Net)|Any CPU
+		{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}.Debug (WebSocketSharp)|Any CPU.ActiveCfg = Debug (WebSocketSharp)|Any CPU
+		{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}.Debug (WebSocketSharp)|Any CPU.Build.0 = Debug (WebSocketSharp)|Any CPU
 		{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}.Release (WebSocket4Net)|Any CPU.ActiveCfg = Release (WebSocket4Net)|Any CPU
+		{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}.Release (WebSocket4Net)|Any CPU.Build.0 = Release (WebSocket4Net)|Any CPU
+		{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}.Release (WebSocketSharp)|Any CPU.ActiveCfg = Release (WebSocketSharp)|Any CPU
+		{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}.Release (WebSocketSharp)|Any CPU.Build.0 = Release (WebSocketSharp)|Any CPU
 		{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8FAA92B2-3BB8-45E5-B145-8C3D7E77CCEA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
