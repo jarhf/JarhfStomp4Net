@@ -1,14 +1,18 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SuperSocket.ClientEngine;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+#if WEBSOCKET4NET
 using WebSocket4Net;
-
+using SuperSocket.ClientEngine;
+#endif
+#if WEBSOCKETSHARP
+using WebSocketSharp;
+#endif
 namespace JarhfStomp4Net.SockJs
 {
     /// <summary>
@@ -16,30 +20,78 @@ namespace JarhfStomp4Net.SockJs
     /// </summary>
     /// @author JHF
     /// @since 4.6
-    public class SockJsClient : WebSocket4Net.WebSocket
+    /// 
+    /// Modified by fkahhaleh
+    ///     Refactored code to allow for different WebSocket implementations via Interface Design Pattern
+    ///     
+    public class SocketJsClient
     {
         private static Random random = new Random();
 
-        public new event EventHandler<MessageReceivedEventArgs> MessageReceived;
+        public event EventHandler<MessageReceivedEventArgs> MessageReceived;
+        public event EventHandler<ClosedEventArgs> OnClosed;
+        public event EventHandler<EventArgs> OnOpened;
+        public event EventHandler<ErrorEventArgs> OnError;
 
-        public SockJsClient(string uri) : base(GenerateTransportUrl(uri))
+        IWebSocket websocket;
+
+        public SocketJsClient(string url)
         {
-            base.MessageReceived += SockJsClient_MessageReceived;
+            websocket = WebSocketFactory.GetWebSocket(GenerateTransportUrl(url));
+            websocket.OnMessageReceived += SockJsClient_MessageReceived;
+            websocket.OnOpened += Websocket_OnOpened;
+            websocket.OnErrors += Websocket_OnError;
+            websocket.OnClosed += Websocket_OnClosed;
         }
 
+        private void Websocket_OnClosed(object sender, ClosedEventArgs e)
+        {
+            this.OnClosed?.Invoke(sender, e);
+        }
+        private void Websocket_OnError(object sender, ErrorEventArgs e)
+        {
+            this.OnError?.Invoke(sender, e);
+        }
+        private void Websocket_OnOpened(object sender, EventArgs e)
+        {
+            this.OnOpened?.Invoke(sender, e);
+        }
+
+        public WebSocketState State
+        {
+            get { return websocket.getSocketState(); }
+        }
         private void SockJsClient_MessageReceived(object sender, MessageReceivedEventArgs e)
         {
-            //接受到消息后还需要根据SockJs的格式处理一下
+            //After receiving the message, you will need to follow the SockJs format
             TransportMessage(e.Message);
         }
 
+        public void Open()
+        {
+            if (websocket != null)
+                websocket.Open();
+        }
         /// <summary>
         /// 覆写了基类的Send方法，对消息数据进行了SockJs格式的包装
         /// </summary>
         /// <param name="data"></param>
-        public new void Send(string data)
+        public void Send(string data)
         {
-            base.Send(SockJsEncode(data));
+            websocket.Send(WebSockerHelperUtils.SockJsEncode(data));
+        }
+
+        public void Close()
+        {
+
+        }
+
+        public string getSocketImplementationInfo()
+        {
+            string wsImplementationinfo = "Unknown";
+            wsImplementationinfo = websocket?.GetType().BaseType?.FullName;
+
+            return wsImplementationinfo;
         }
 
         private void OnMessageReceived(string msg)
@@ -111,7 +163,7 @@ namespace JarhfStomp4Net.SockJs
                 case "c"://close                    
                     if ((payload is JArray) && payload.Count() == 2)
                     {
-                        this.Close(int.Parse(payload[0].ToString()), payload[1].ToString());
+                        websocket.Close(ushort.Parse(payload[0].ToString()), payload[1].ToString());
                     }
                     break;
             }
@@ -250,27 +302,7 @@ namespace JarhfStomp4Net.SockJs
             return transportUrl;
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="data"></param>
-        /// <returns></returns>
-        private string SockJsEncode(string data)
-        {
-            return BracketData(Quote(data));
-        }
 
-        /// <summary>
-        /// sockjs会将数据用[]包起来
-        /// <para>考参代码：https://github.com/sockjs/sockjs-client/blob/master/dist/sockjs.js 第2983行</para>
-        /// </summary>
-        /// <![CDATA[]]>
-        /// <param name="data"></param>
-        /// <returns></returns>
-        private string BracketData(string data)
-        {
-            return "[" + data + "]";
-        }
         //WebSocketTransport.prototype.send = function(data)
         //{
         //    var msg = '[' + data + ']';
@@ -278,14 +310,158 @@ namespace JarhfStomp4Net.SockJs
         //    this.ws.send(msg);
         //};
 
+    }
 
-        #region 以下代码参考：https://github.com/sockjs/sockjs-client/blob/master/lib/utils/escape.js
+#if WEBSOCKET4NET
+    public class WS4NetSocket : WebSocket4Net.WebSocket, IWebSocket
+    {
+        public event EventHandler<MessageReceivedEventArgs> OnMessageReceived;
+        public event EventHandler<ClosedEventArgs> OnClosed;
+        public event EventHandler<ErrorEventArgs> OnErrors;
+        public event EventHandler<EventArgs> OnOpened;
+
+        public void Close(ushort closeCode, string closeReason)
+        {
+            base.Close((int)closeCode, closeReason);
+        }
+
+        public WebSocketState getSocketState()
+        {
+            WebSocketState retState = WebSocketState.None;
+            switch (base.State)
+            {
+                case WebSocket4Net.WebSocketState.Connecting:
+                    retState = WebSocketState.Connecting;
+                    break;
+                case WebSocket4Net.WebSocketState.Open:
+                    retState = WebSocketState.Open;
+                    break;
+                case WebSocket4Net.WebSocketState.Closing:
+                    retState = WebSocketState.Closing;
+                    break;
+                case WebSocket4Net.WebSocketState.Closed:
+                    retState = WebSocketState.Closed;
+                    break;
+                default:
+                    break;
+            }
+            return retState;
+        }
+
+        public WS4NetSocket(string url) : base(url)
+        {
+            base.MessageReceived += SockJsClient_MessageReceived;
+        }
+
+        private void SockJsClient_MessageReceived(object sender, WebSocket4Net.MessageReceivedEventArgs e)
+        {
+            //接受到消息后还需要根据SockJs的格式处理一下
+            this.OnMessageReceived?.Invoke(sender, new MessageReceivedEventArgs(e.Message));
+        }
+    }
+#endif
+
+#if WEBSOCKETSHARP
+    public class WSSharpSocket : WebSocketSharp.WebSocket, IWebSocket
+    {
+        public event EventHandler<MessageReceivedEventArgs> OnMessageReceived;
+        public event EventHandler<ClosedEventArgs> OnClosed;
+        public event EventHandler<EventArgs> OnOpened;
+        public event EventHandler<ErrorEventArgs> OnErrors;
+
+        //event EventHandler<ErrorEventArgs> IWebSocket.OnError
+        //{
+        //    add
+        //    {
+        //        throw new NotImplementedException();
+        //    }
+
+        //    remove
+        //    {
+        //        throw new NotImplementedException();
+        //    }
+        //}
+
+        public void Open()
+        {
+            //if (base.ReadyState == WebSocketSharp.WebSocketState.Closed)
+                base.Connect();
+        }
+        public new void Close(ushort closeCode, string closeReason)
+        {
+            if (base.ReadyState == WebSocketSharp.WebSocketState.Open)
+            {
+                if (Enum.IsDefined(typeof(CloseStatusCode), closeCode))
+                {
+                    CloseStatusCode code = (CloseStatusCode)closeCode;
+                    base.Close(code, closeReason);
+                }
+                else
+                    base.Close(CloseStatusCode.Undefined, "StatusCode was unknown");
+            }
+        }
+        public WSSharpSocket(string url) : base(url)
+        {
+            base.OnOpen += WSSharpSocket_OnOpen;
+            base.OnMessage += WSSharpSocket_OnMessage;
+            base.OnClose += WSSharpSocket_OnClose;
+            base.OnError += WSSharpSocket_OnError;
+        }
+
+        private void WSSharpSocket_OnError(object sender, WebSocketSharp.ErrorEventArgs e)
+        {
+            this.OnErrors?.Invoke(sender, new SockJs.ErrorEventArgs(e.Exception, e.Message));
+        }
+
+        public WebSocketState getSocketState()
+        {
+            WebSocketState retState = WebSocketState.None;
+            switch (base.ReadyState)
+            {
+                case WebSocketSharp.WebSocketState.Connecting:
+                    retState = WebSocketState.Connecting;
+                    break;
+                case WebSocketSharp.WebSocketState.Open:
+                    retState = WebSocketState.Open;
+                    break;
+                case WebSocketSharp.WebSocketState.Closing:
+                    retState = WebSocketState.Closing;
+                    break;
+                case WebSocketSharp.WebSocketState.Closed:
+                    retState = WebSocketState.Closed;
+                    break;
+                default:
+                    break;
+            }
+            return retState;
+        }
+
+        private void WSSharpSocket_OnOpen(object sender, EventArgs e)
+        {
+            this.OnOpened?.Invoke(sender, e);
+        }
+        private void WSSharpSocket_OnClose(object sender, CloseEventArgs e)
+        {
+            OnClosed?.Invoke(sender, new SockJs.ClosedEventArgs(e.Code, e.Reason, e.WasClean));
+        }
+        private void WSSharpSocket_OnMessage(object sender, MessageEventArgs e)
+        {
+            OnMessageReceived?.Invoke(sender, new SockJs.MessageReceivedEventArgs(e.Data));
+        }
+
+    }
+#endif
+
+    internal static class WebSockerHelperUtils
+    {
+#region 以下代码参考：https://github.com/sockjs/sockjs-client/blob/master/lib/utils/escape.js
 
         /// <summary>
         /// Some extra characters that Chrome gets wrong, and substitutes with something else on the wire.
         /// eslint-disable-next-line no-control-regex 
         /// </summary>
         static Regex extraEscapable = new Regex("[\x00-\x1f\ud800-\udfff\ufffe\uffff\u0300-\u0333\u033d-\u0346\u034a-\u034c\u0350-\u0352\u0357-\u0358\u035c-\u0362\u0374\u037e\u0387\u0591-\u05af\u05c4\u0610-\u0617\u0653-\u0654\u0657-\u065b\u065d-\u065e\u06df-\u06e2\u06eb-\u06ec\u0730\u0732-\u0733\u0735-\u0736\u073a\u073d\u073f-\u0741\u0743\u0745\u0747\u07eb-\u07f1\u0951\u0958-\u095f\u09dc-\u09dd\u09df\u0a33\u0a36\u0a59-\u0a5b\u0a5e\u0b5c-\u0b5d\u0e38-\u0e39\u0f43\u0f4d\u0f52\u0f57\u0f5c\u0f69\u0f72-\u0f76\u0f78\u0f80-\u0f83\u0f93\u0f9d\u0fa2\u0fa7\u0fac\u0fb9\u1939-\u193a\u1a17\u1b6b\u1cda-\u1cdb\u1dc0-\u1dcf\u1dfc\u1dfe\u1f71\u1f73\u1f75\u1f77\u1f79\u1f7b\u1f7d\u1fbb\u1fbe\u1fc9\u1fcb\u1fd3\u1fdb\u1fe3\u1feb\u1fee-\u1fef\u1ff9\u1ffb\u1ffd\u2000-\u2001\u20d0-\u20d1\u20d4-\u20d7\u20e7-\u20e9\u2126\u212a-\u212b\u2329-\u232a\u2adc\u302b-\u302c\uaab2-\uaab3\uf900-\ufa0d\ufa10\ufa12\ufa15-\ufa1e\ufa20\ufa22\ufa25-\ufa26\ufa2a-\ufa2d\ufa30-\ufa6d\ufa70-\ufad9\ufb1d\ufb1f\ufb2a-\ufb36\ufb38-\ufb3c\ufb3e\ufb40-\ufb41\ufb43-\ufb44\ufb46-\ufb4e\ufff0-\uffff]");
+
         static Dictionary<string, string> _extraLookup;
         static Dictionary<string, string> extraLookup
         {
@@ -321,7 +497,6 @@ namespace JarhfStomp4Net.SockJs
 
             return unrolled;
         }
-
         /// <summary>
         /// Quote string, also taking care of unicode characters that browsers
         /// often break. Especially, take care of unicode surrogates:
@@ -329,7 +504,7 @@ namespace JarhfStomp4Net.SockJs
         /// </summary>
         /// <param name="str"></param>
         /// <returns></returns>
-        static string Quote(string str)
+        internal static string Quote(string str)
         {
             var quoted = JsonConvert.ToString(str);
 
@@ -344,63 +519,30 @@ namespace JarhfStomp4Net.SockJs
                 return extraLookup[a.Value];
             });
         }
+#endregion
 
-        /* 上面的Quote，UnrollLookup等方法参考： https://github.com/sockjs/sockjs-client/blob/master/lib/utils/escape.js
-    * 代码摘录如下：
-'use strict';
 
-var JSON3 = require('json3');
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        internal static string SockJsEncode(string data)
+        {
+            return BracketData(Quote(data));
+        }
 
-// Some extra characters that Chrome gets wrong, and substitutes with
-// something else on the wire.
-// eslint-disable-next-line no-control-regex
-var extraEscapable = /[\x00-\x1f\ud800-\udfff\ufffe\uffff\u0300-\u0333\u033d-\u0346\u034a-\u034c\u0350-\u0352\u0357-\u0358\u035c-\u0362\u0374\u037e\u0387\u0591-\u05af\u05c4\u0610-\u0617\u0653-\u0654\u0657-\u065b\u065d-\u065e\u06df-\u06e2\u06eb-\u06ec\u0730\u0732-\u0733\u0735-\u0736\u073a\u073d\u073f-\u0741\u0743\u0745\u0747\u07eb-\u07f1\u0951\u0958-\u095f\u09dc-\u09dd\u09df\u0a33\u0a36\u0a59-\u0a5b\u0a5e\u0b5c-\u0b5d\u0e38-\u0e39\u0f43\u0f4d\u0f52\u0f57\u0f5c\u0f69\u0f72-\u0f76\u0f78\u0f80-\u0f83\u0f93\u0f9d\u0fa2\u0fa7\u0fac\u0fb9\u1939-\u193a\u1a17\u1b6b\u1cda-\u1cdb\u1dc0-\u1dcf\u1dfc\u1dfe\u1f71\u1f73\u1f75\u1f77\u1f79\u1f7b\u1f7d\u1fbb\u1fbe\u1fc9\u1fcb\u1fd3\u1fdb\u1fe3\u1feb\u1fee-\u1fef\u1ff9\u1ffb\u1ffd\u2000-\u2001\u20d0-\u20d1\u20d4-\u20d7\u20e7-\u20e9\u2126\u212a-\u212b\u2329-\u232a\u2adc\u302b-\u302c\uaab2-\uaab3\uf900-\ufa0d\ufa10\ufa12\ufa15-\ufa1e\ufa20\ufa22\ufa25-\ufa26\ufa2a-\ufa2d\ufa30-\ufa6d\ufa70-\ufad9\ufb1d\ufb1f\ufb2a-\ufb36\ufb38-\ufb3c\ufb3e\ufb40-\ufb41\ufb43-\ufb44\ufb46-\ufb4e\ufff0-\uffff]/g
- , extraLookup;
-
-// This may be quite slow, so let's delay until user actually uses bad
-// characters.
-var unrollLookup = function(escapable) {
- var i;
- var unrolled = {};
- var c = [];
- for (i = 0; i < 65536; i++) {
-   c.push( String.fromCharCode(i) );
- }
- escapable.lastIndex = 0;
- c.join('').replace(escapable, function(a) {
-   unrolled[ a ] = '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
-   return '';
- });
- escapable.lastIndex = 0;
- return unrolled;
-};
-
-// Quote string, also taking care of unicode characters that browsers
-// often break. Especially, take care of unicode surrogates:
-// http://en.wikipedia.org/wiki/Mapping_of_Unicode_characters#Surrogates
-module.exports = {
- quote: function(string) {
-   var quoted = JSON3.stringify(string);
-
-   // In most cases this should be very fast and good enough.
-   extraEscapable.lastIndex = 0;
-   if (!extraEscapable.test(quoted)) {
-     return quoted;
-   }
-
-   if (!extraLookup) {
-     extraLookup = unrollLookup(extraEscapable);
-   }
-
-   return quoted.replace(extraEscapable, function(a) {
-     return extraLookup[a];
-   });
- }
-};
-    */
-        #endregion
+        /// <summary>
+        /// sockjs会将数据用[]包起来
+        /// <para>考参代码：https://github.com/sockjs/sockjs-client/blob/master/dist/sockjs.js 第2983行</para>
+        /// </summary>
+        /// <![CDATA[]]>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        internal static string BracketData(string data)
+        {
+            return "[" + data + "]";
+        }
     }
-
-
 
 }

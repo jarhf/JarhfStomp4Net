@@ -31,7 +31,7 @@ namespace JarhfStomp4Net.Stomp
         /// <summary>
         /// 当前使用的SockJsClient
         /// </summary>
-        public SockJsClient SockJs { get; set; }
+        public SocketJsClient SockJs { get; set; }
 
         public StompStatus Status { get; set; }
 
@@ -47,21 +47,28 @@ namespace JarhfStomp4Net.Stomp
         string VERSIONS_V1_1 = "1.1";
         string VERSIONS_V1_2 = "1.2";
         string SUPPORTED_VERSIONS = "1.1,1.0";
-        Timer pinger;
+        Timer pinger;   
         Timer ponger;
         DateTime serverActivity = DateTime.Now;
 
 
         public StompClient(string uri)
         {
-            this.SockJs = new SockJsClient(uri);
-            this.SockJs.MessageReceived += Ws_MessageReceived;
-            this.SockJs.Closed += Ws_Closed;
-            this.SockJs.Opened += Ws_Opened;
-            this.SockJs.Error += Ws_Error;
+            this.SockJs = new SocketJsClient(uri);
+            if (SockJs != null)
+            {
+                this.SockJs.MessageReceived += Ws_MessageReceived;
+                this.SockJs.OnClosed += Ws_Closed;
+                this.SockJs.OnOpened += Ws_Opened;
+                this.SockJs.OnError += Ws_Error;
+
+                this.Debug($"WebSokcet created, using the {SockJs.getSocketImplementationInfo()} implementation.");
+            }
+            else
+                throw new Exception("Couldn't initiate a WebSocket object");
         }
 
-        private void Ws_Error(object sender, SuperSocket.ClientEngine.ErrorEventArgs e)
+        private void Ws_Error(object sender, ErrorEventArgs e)
         {
             this.Debug("WebSocket Error:" + e.Exception);
         }
@@ -73,16 +80,15 @@ namespace JarhfStomp4Net.Stomp
             SendStompConnectCmd(null);
         }
 
-        private void Ws_Closed(object sender, EventArgs e)
+        private void Ws_Closed(object sender, ClosedEventArgs e)
         {
-            WebSocket4Net.ClosedEventArgs e1 = e as WebSocket4Net.ClosedEventArgs;
             string code = "";
             string reason = "";
-            if (e1 != null)
+            if (e != null)
             {
-                System.Net.WebSockets.WebSocketCloseStatus closeStatus = (System.Net.WebSockets.WebSocketCloseStatus)e1.Code;
-                code = e1.Code + "(" + closeStatus.ToString() + ")";
-                reason = e1.Reason;
+                System.Net.WebSockets.WebSocketCloseStatus closeStatus = (System.Net.WebSockets.WebSocketCloseStatus)e.Code;
+                code = e.Code + "(" + closeStatus.ToString() + ")";
+                reason = e.Reason;
             }
             this.Status = StompStatus.Disconnected;
             Callbacks.Disconnected?.Invoke();
@@ -113,7 +119,7 @@ namespace JarhfStomp4Net.Stomp
             return Subscriptions.FirstOrDefault(i => i.Id == id)?.Callback;
         }
 
-        private void Ws_MessageReceived(object sender, WebSocket4Net.MessageReceivedEventArgs e)
+        private void Ws_MessageReceived(object sender, MessageReceivedEventArgs e)
         {
             string data = e.Message;
 
@@ -311,8 +317,9 @@ namespace JarhfStomp4Net.Stomp
         {
             Callbacks.ConnectSuccess = connectCallback;
             Callbacks.Error = failedCallback;
-
-            if (this.SockJs.State == WebSocket4Net.WebSocketState.Open)
+            this.SockJs.OnError += (sender, args) => { Console.WriteLine(args.Exception.Message); };
+            
+            if (this.SockJs.State == WebSocketState.Open)
             {
                 connectCallback(new Frame());
             }
@@ -647,7 +654,6 @@ namespace JarhfStomp4Net.Stomp
         }
 
     }
-
 
 
     class StompCallbacks
