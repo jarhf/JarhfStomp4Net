@@ -49,3 +49,6 @@ client.Connect(null, (Frame frame) =>
 	 });
 });
 ```
+
+# License
+MIT
